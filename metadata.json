@@ -1,0 +1,5 @@
+{
+  "name": "SOUNDATLAS",
+  "description": "Endüstriyel makineler için akustik coğrafya paneli. Ses imzalarını topografik haritalar olarak görselleştirir.",
+  "requestFramePermissions": []
+}
