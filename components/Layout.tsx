@@ -1,5 +1,6 @@
 import React from 'react';
-import { Layers, Activity, Radio, Database, Settings, Bell, Search, Volume2, Loader2 } from 'lucide-react';
+import { Layers, Activity, Radio, Database, Settings, Bell, Search, Volume2, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { useAppState } from '../store/AppContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +11,12 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, onPlaySummary, isGeneratingAudio }) => {
+  let esp32Connected = false;
+  try {
+    const state = useAppState();
+    esp32Connected = state.esp32Status?.connected || false;
+  } catch { /* AppProvider not mounted yet */ }
+
   return (
     <div className="flex flex-col md:flex-row h-screen w-screen bg-graphite-900 text-slate-300 font-sans overflow-hidden">
       {/* Sidebar - Desktop: Left, Mobile: Bottom Navigation */}
@@ -62,6 +69,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, onPla
                         className="bg-graphite-800 border border-slate-700 rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-slate-500 w-64 transition-all"
                     />
                 </div>
+                <span className="flex items-center gap-1.5 text-xs" title={esp32Connected ? 'ESP32 Connected' : 'ESP32 Disconnected'}>
+                  {esp32Connected ? <Wifi size={14} className="text-green-400" /> : <WifiOff size={14} className="text-slate-600" />}
+                  <span className={`hidden sm:inline ${esp32Connected ? 'text-green-400' : 'text-slate-600'}`}>
+                    {esp32Connected ? 'ESP32' : 'No Device'}
+                  </span>
+                </span>
                 <button className="relative text-slate-400 hover:text-white">
                     <Bell size={18} />
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-magenta-core rounded-full animate-pulse"></span>

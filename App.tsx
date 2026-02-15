@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
+import { AppProvider } from './store/AppContext';
+import { useWebSocket } from './hooks/useWebSocket';
 import Layout from './components/Layout';
 import AcousticMap from './components/AcousticMap';
 import RightRail from './components/RightRail';
 import MachineProfile from './components/MachineProfile';
+import { DevicesView } from './components/devices/DevicesView';
+import { StudioView } from './components/studio/StudioView';
+import { CasesView } from './components/cases/CasesView';
+import { AlarmPopup } from './components/shared/AlarmPopup';
 import { Machine } from './types';
-import { AlertCircle } from 'lucide-react';
 import { MOCK_MACHINES, RECENT_INCIDENTS } from './constants';
 import { GoogleGenAI, Modality } from "@google/genai";
 
-const App: React.FC = () => {
+const AppInner: React.FC = () => {
   const [activeView, setActiveView] = useState('map');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const { send } = useWebSocket();
 
   const handleMachineSelect = (machine: Machine) => {
     setSelectedMachine(machine);
@@ -27,7 +33,6 @@ const App: React.FC = () => {
     setIsGeneratingAudio(true);
 
     try {
-      // 1. Mevcut veriden özet metin oluştur
       const criticalCount = MOCK_MACHINES.filter(m => m.status === 'CRITICAL').length;
       const warningCount = MOCK_MACHINES.filter(m => m.status === 'WARNING').length;
       const total = MOCK_MACHINES.length;
@@ -41,10 +46,8 @@ const App: React.FC = () => {
         Sağ panelde toplam ${RECENT_INCIDENTS.length} aktif vaka ve canlı enerji tüketim verileri listelenmektedir."
       `;
 
-      // 2. Gemini API'yi başlat
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-      // 3. TTS İsteği gönder
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: [{ parts: [{ text: promptText }] }],
@@ -52,13 +55,12 @@ const App: React.FC = () => {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore, Fenrir, Puck, Charon
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
             },
           },
         },
       });
 
-      // 4. Sesi Çöz ve Oynat
       const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -68,7 +70,7 @@ const App: React.FC = () => {
           24000,
           1
         );
-        
+
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioContext.destination);
@@ -89,11 +91,10 @@ const App: React.FC = () => {
         return (
           <div className="flex flex-col lg:flex-row h-full">
             <div className="flex-1 relative min-h-0">
-              <AcousticMap 
-                onMachineSelect={handleMachineSelect} 
-                selectedMachineId={selectedMachine?.id || null} 
+              <AcousticMap
+                onMachineSelect={handleMachineSelect}
+                selectedMachineId={selectedMachine?.id || null}
               />
-              {/* Overlay Profile */}
               {selectedMachine && (
                 <MachineProfile machine={selectedMachine} onClose={handleCloseProfile} />
               )}
@@ -102,33 +103,36 @@ const App: React.FC = () => {
           </div>
         );
       case 'cases':
+        return <CasesView />;
       case 'studio':
+        return <StudioView />;
       case 'devices':
-        return (
-          <div className="flex items-center justify-center h-full bg-graphite-900 text-slate-500 flex-col gap-4">
-            <AlertCircle size={48} className="opacity-50" />
-            <h2 className="text-xl font-mono uppercase tracking-widest">
-                {activeView === 'cases' ? 'VAKA YÖNETİMİ' : activeView === 'studio' ? 'MODEL STÜDYOSU' : 'CİHAZLAR'} MODÜLÜ YAPIM AŞAMASINDA
-            </h2>
-            <p className="text-sm max-w-md text-center">
-                Akustik imza görselleştirme motoru şu anda Harita görünümünde aktiftir.
-            </p>
-          </div>
-        );
+        return <DevicesView />;
       default:
         return null;
     }
   };
 
   return (
-    <Layout 
-      activeView={activeView} 
-      onNavigate={setActiveView} 
-      onPlaySummary={handlePlaySummary}
-      isGeneratingAudio={isGeneratingAudio}
-    >
-      {renderContent()}
-    </Layout>
+    <>
+      <Layout
+        activeView={activeView}
+        onNavigate={setActiveView}
+        onPlaySummary={handlePlaySummary}
+        isGeneratingAudio={isGeneratingAudio}
+      >
+        {renderContent()}
+      </Layout>
+      <AlarmPopup />
+    </>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AppProvider>
+      <AppInner />
+    </AppProvider>
   );
 };
 
